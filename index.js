@@ -1,6 +1,6 @@
 // TODO Refactor this code, separate is to pieces.
 // TODO Fix laggy input
-
+// TODO separate utils and variables, probably make better color pick
 const Colors = {
     BLACK: 30,
     GRAY: 90,
@@ -82,6 +82,7 @@ const figureVariants = "OISZLJT";
 const figuresIterator = iterateFigures()
 let currentFigure
 
+// I actually like this one
 function* iterateFigures() {
     let pack = figureVariants;
     for (let i = 0; i < pack.length; i++) {
@@ -94,6 +95,7 @@ function* iterateFigures() {
     }
 }
 
+// TODO refactor to make less of same code
 function createFigure() {
     return {
         position: {x: randNum(GRID_SIZE.width - 1), y: 0},
@@ -179,6 +181,8 @@ function createFigure() {
     }
 }
 
+// Draws game to terminal
+// TODO find the way to change font size in terminal
 function draw() {
     console.clear();
     process.stdout.write(' '.repeat(8) + colorize(Colors.GRAY, '█'.repeat(GRID_SIZE.width + 2) + '\n'));
@@ -193,6 +197,7 @@ function draw() {
     process.stdout.write('\n' + ' '.repeat(8) + colorize(Colors.WHITE, 'SCORE: ' + SCORE));
 }
 
+// Saves fallen pieces
 function updateTileMap() {
     tileMap = Array.from({length: GRID_SIZE.height},
         () => {
@@ -218,6 +223,7 @@ function updateTileMap() {
     }
 }
 
+// TODO Works kinda OK, add animation, change score system to NES one
 function removeFullLines() {
     for (let [rowIndex, row] of tileMap.entries()) {
         if (row.every((tile) => tile !== 0)) {
@@ -231,6 +237,7 @@ function removeFullLines() {
     }
 }
 
+// TODO Input processing (Lagging, fix it and separate)
 process.stdin.setRawMode(true);
 process.stdin.resume();
 process.stdin.setEncoding('utf8');
@@ -247,6 +254,7 @@ process.stdin.on('data', (data) => {
     if (data === '\u0003') { process.exit(); }
 });
 
+// TODO Separate into startup module
 updateTileMap();
 currentFigure = createFigure();
 setInterval(() => {
