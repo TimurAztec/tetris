@@ -1,0 +1,11 @@
+{
+  "name": "tetris",
+  "version": "0.0.1",
+  "description": "Simple Tetris in terminal",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "",
+  "dependencies": {}
+}
