@@ -1,5 +1,6 @@
+const { randNum, colorize, iterateTwoDimArray } = require("./utils");
 // TODO Refactor this code, separate is to pieces.
-// TODO Fix laggy input
+// TODO collisions (rare bug)
 // TODO separate utils and variables, probably make better color pick
 const Colors = {
     BLACK: 30,
@@ -21,15 +22,6 @@ let GAME_OVER = false;
 let tileMap;
 let figuresMap;
 const tilesColors = [Colors.BLACK, Colors.RED, Colors.GREEN, Colors.YELLOW, Colors.BLUE, Colors.MAGENTA, Colors.CYAN, Colors.WHITE];
-
-function randNum(max, min = 1) {
-    return Math.floor(Math.random() * max) + min
-}
-
-function colorize(color, output) {
-    return ['\033[', color, 'm', output, '\033[0m'].join('');
-}
-
 const figuresPresets = Object.freeze({
     O: () => {
         const c = randNum(tilesColors.length - 2);
@@ -38,38 +30,34 @@ const figuresPresets = Object.freeze({
     },
     I: () => {
         const c = randNum(tilesColors.length - 2);
-        return [[0, c, 0, 0],
-                [0, c, 0, 0],
-                [0, c, 0, 0],
-                [0, c, 0, 0]]
+        return [[0, 0, 0, 0],
+                [c, c, c, c],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0]]
     },
     S: () => {
         const c = randNum(tilesColors.length - 2);
-        return [[0, 0, 0, 0, 0],
-                [0, c, 0, 0, 0],
-                [0, c, c, 0, 0],
-                [0, 0, c, 0, 0],
-                [0, 0, 0, 0, 0]]
+        return [[0, c, 0],
+                [0, c, c],
+                [0, 0, c]]
     },
     Z: () => {
         const c = randNum(tilesColors.length - 2);
-        return [[0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0],
-                [0, c, c, 0, 0],
-                [0, 0, c, c, 0],
-                [0, 0, 0, 0, 0]]
+        return [[0, 0, c],
+                [0, c, c],
+                [0, c, 0]]
     },
     L: () => {
         const c = randNum(tilesColors.length - 2);
-        return [[0, c, 0, 0],
-                [0, c, 0, 0],
-                [0, c, c, 0]]
+        return [[0, c, 0],
+                [0, c, 0],
+                [0, c, c]]
     },
     J: () => {
         const c = randNum(tilesColors.length - 2);
-        return [[0, 0, c, 0],
-                [0, 0, c, 0],
-                [0, c, c, 0]]
+        return [[0, c, 0],
+                [0, c, 0],
+                [c, c, 0]]
     },
     T: () => {
         const c = randNum(tilesColors.length - 2);
@@ -82,24 +70,26 @@ const figureVariants = "OISZLJT";
 const figuresIterator = iterateFigures()
 let currentFigure
 
-// I actually like this one
+// Preudorandom sequence
 function* iterateFigures() {
-    let pack = figureVariants;
-    for (let i = 0; i < pack.length; i++) {
-        yield pack[randNum(pack.length - 1)];
-        pack.replace(pack[i], '');
-        if (i === pack.length - 1) {
-            i = 0;
-            pack = figureVariants;
+    let pack = "";
+    function* iteration() {
+        while (true) {
+            if (pack.length <= 0) pack = figureVariants;
+            let i = randNum(pack.length, 0);
+            yield pack[i];
+            pack = pack.replace(pack[i], '');
         }
     }
+    yield* iteration();
 }
 
 // TODO refactor to make less of same code
 function createFigure() {
+    const localMap = figuresPresets[figuresIterator.next().value]();
     return {
-        position: {x: randNum(GRID_SIZE.width - 1), y: 0},
-        localMap: figuresPresets[figuresIterator.next().value](),
+        localMap: localMap,
+        position: {x: Math.floor((GRID_SIZE.width/2) - (localMap[0].length/2)), y: 0},
         move: 0,
         turn: false,
         process: function () {
@@ -109,56 +99,62 @@ function createFigure() {
                 const turnedMap = this.localMap.map((val, index) => this.localMap.map(row => row[index]).reverse());
                 this.turn = false;
                 let shouldTurn = true;
-                for (let [LM_rowIndex, LM_row] of turnedMap.entries()) {
-                    for (let [LM_tileIndex, LM_tile] of LM_row.entries()) {
-                        if (turnedMap[LM_rowIndex] && turnedMap[LM_rowIndex][LM_tileIndex]) {
-                            if (tileMap[this.position.y + LM_rowIndex]
-                                && tileMap[this.position.y + LM_rowIndex][this.position.x + LM_tileIndex]) {
-                                shouldTurn = false
-                            }
+                iterateTwoDimArray(turnedMap, (i) => {
+                    if (turnedMap[i.rowIndex] && turnedMap[i.rowIndex][i.tileIndex]) {
+                        if (tileMap[this.position.y + i.rowIndex]
+                            && tileMap[this.position.y + i.rowIndex][this.position.x + i.tileIndex]) {
+                            shouldTurn = false
                         }
                     }
-                }
+                });
                 if (shouldTurn) {
                     this.localMap = turnedMap;
                 }
             }
-            for (let [LM_rowIndex, LM_row] of this.localMap.entries()) {
-                for (let [LM_tileIndex, LM_tile] of LM_row.entries()) {
-                    if (this.localMap[LM_rowIndex] && this.localMap[LM_rowIndex][LM_tileIndex]) {
-                        if ((this.position.y + LM_rowIndex) >= GRID_SIZE.height) {
-                            this.position.y -= LM_rowIndex;
-                        }
-                        if ((this.position.x + LM_tileIndex) >= GRID_SIZE.width) {
-                            this.position.x -= LM_tileIndex;
-                        }
-                        if (tileMap[this.position.y + LM_rowIndex]
-                            && tileMap[this.position.y + LM_rowIndex][this.position.x + LM_tileIndex] === 0) {
-                            tileMap[this.position.y + LM_rowIndex][this.position.x + LM_tileIndex] =
-                                this.localMap[LM_rowIndex][LM_tileIndex];
-                        }
+            iterateTwoDimArray(this.localMap, (i) => {
+                if (this.localMap[i.rowIndex] && this.localMap[i.rowIndex][i.tileIndex]) {
+                    if ((this.position.y + i.rowIndex) >= GRID_SIZE.height) {
+                        this.position.y -= i.rowIndex + 1;
+                    }
+                    if ((this.position.x + i.tileIndex) >= GRID_SIZE.width) {
+                        this.position.x -= i.tileIndex - 1;
+                    }
+                    if ((this.position.x + i.tileIndex) < 0) {
+                        this.position.x += i.tileIndex + 1;
+                    }
+                    if (tileMap[this.position.y + i.rowIndex]
+                        && tileMap[this.position.y + i.rowIndex][this.position.x + i.tileIndex] === 0) {
+                        tileMap[this.position.y + i.rowIndex][this.position.x + i.tileIndex] =
+                            this.localMap[i.rowIndex][i.tileIndex];
                     }
                 }
-            }
-            for (let [LM_rowIndex, LM_row] of this.localMap.entries()) {
-                for (let [LM_tileIndex, LM_tile] of LM_row.entries()) {
-                    if (this.localMap[LM_rowIndex][LM_tileIndex] &&
-                        (!this.localMap[LM_rowIndex + 1] || this.localMap[LM_rowIndex + 1][LM_tileIndex] === 0)) {
+            });
+            iterateTwoDimArray(this.localMap, (i) => {
+                if (this.localMap[i.rowIndex][i.tileIndex]) {
 
-                        if (tileMap[this.position.y + LM_rowIndex + 1] &&
-                            (tileMap[this.position.y + LM_rowIndex + 1][this.position.x + LM_tileIndex + this.move] === undefined ||
-                                tileMap[this.position.y + LM_rowIndex + 1][this.position.x + LM_tileIndex + this.move])) {
-                            shouldMove = false;
-                        }
-
-                        if (tileMap[this.position.y + LM_rowIndex + 1] === undefined ||
-                            tileMap[this.position.y + LM_rowIndex + 1][this.position.x + LM_tileIndex]) {
-                            shouldDrop = false;
-                        }
-
+                    if ((this.localMap[i.rowIndex][i.tileIndex + this.move] === 0)
+                        &&
+                        (tileMap[this.position.y + i.rowIndex][this.position.x + i.tileIndex + this.move] === undefined ||
+                        tileMap[this.position.y + i.rowIndex][this.position.x + i.tileIndex + this.move])) {
+                        shouldMove = false;
                     }
+
+                    if ((!this.localMap[i.rowIndex + 1] || this.localMap[i.rowIndex + 1][i.tileIndex + this.move] === 0)
+                        &&
+                        (tileMap[this.position.y + i.rowIndex + 1]) &&
+                        (tileMap[this.position.y + i.rowIndex + 1][this.position.x + i.tileIndex + this.move] === undefined ||
+                            tileMap[this.position.y + i.rowIndex + 1][this.position.x + i.tileIndex + this.move])) {
+                        shouldMove = false;
+                    }
+
+                    if ((!this.localMap[i.rowIndex + 1] || this.localMap[i.rowIndex + 1][i.tileIndex] === 0) &&
+                        (tileMap[this.position.y + i.rowIndex + 1] === undefined ||
+                        tileMap[this.position.y + i.rowIndex + 1][this.position.x + i.tileIndex])) {
+                        shouldDrop = false;
+                    }
+
                 }
-            }
+            });
             if (shouldDrop) {
                 if (shouldMove) {
                     if (this.move !== 0) {
@@ -183,6 +179,7 @@ function createFigure() {
 
 // Draws game to terminal
 // TODO find the way to change font size in terminal
+// TODO redraw only changed parts via ASCI escape codes
 function draw() {
     console.clear();
     process.stdout.write(' '.repeat(8) + colorize(Colors.GRAY, '█'.repeat(GRID_SIZE.width + 2) + '\n'));
@@ -210,34 +207,63 @@ function updateTileMap() {
         figuresMap = tileMap;
         return;
     }
-    for (let [LM_rowIndex, LM_row] of figuresMap.entries()) {
-        for (let [LM_tileIndex, LM_tile] of LM_row.entries()) {
-            if (tileMap.length - 1 >= LM_rowIndex &&
-                tileMap[tileMap.length - 1].length >= LM_tileIndex) {
-                if (tileMap[LM_rowIndex][LM_tileIndex] === 0) {
-                    tileMap[LM_rowIndex][LM_tileIndex] =
-                        figuresMap[LM_rowIndex][LM_tileIndex];
-                }
+    iterateTwoDimArray(figuresMap, (i) => {
+        if (tileMap.length - 1 >= i.rowIndex &&
+            tileMap[tileMap.length - 1].length >= i.tileIndex) {
+            if (tileMap[i.rowIndex][i.tileIndex] === 0) {
+                tileMap[i.rowIndex][i.tileIndex] =
+                    figuresMap[i.rowIndex][i.tileIndex];
+            }
+        }
+    });
+}
+
+// Works kinda OK
+function removeWhiteLines() {
+    let removedRows = 0;
+    for (let [rowIndex, row] of [...figuresMap].entries()) {
+        if (row.every((tile) => tile === tilesColors.length - 1)) {
+            figuresMap.splice(rowIndex, 1);
+            figuresMap.unshift(Array.from({length: GRID_SIZE.width},
+                () => {
+                    return 0
+                }));
+            removedRows += 1;
+        }
+    }
+    SCORE += (removedRows * GRID_SIZE.width) * (1 + (removedRows * 0.5));
+}
+
+function colorFullLines() {
+    for (let [rowIndex, row] of [...figuresMap].entries()) {
+        if (row.every((tile) => tile !== 0)) {
+            for (let [tileIndex] of row.entries()) {
+                figuresMap[rowIndex][tileIndex] = tilesColors.length - 1;
             }
         }
     }
 }
 
-// TODO Works kinda OK, add animation, change score system to NES one
-function removeFullLines() {
-    for (let [rowIndex, row] of tileMap.entries()) {
-        if (row.every((tile) => tile !== 0)) {
-            tileMap.splice(rowIndex, 1);
-            tileMap.unshift(Array.from({length: GRID_SIZE.width},
-                () => {
-                    return 0
-                }));
-            SCORE += 10;
-        }
+// TODO Separate into startup module
+updateTileMap();
+currentFigure = createFigure();
+process.stdout.write('\033[?25l');
+setInterval(() => {
+    if (!GAME_OVER) {
+        updateTileMap();
+        if (currentFigure) { currentFigure.process(); }
+        removeWhiteLines();
+        if (!currentFigure) { colorFullLines(); }
+        draw();
+    } else {
+        process.stdout.clearScreenDown(() => {
+            process.stdout.write(colorize(Colors.YELLOW, 'GAME OVER | SCORE: ' + SCORE));
+            process.stdout.write('\033[?47l');
+            process.exit(1);
+        });
     }
-}
+}, 175);
 
-// TODO Input processing (Lagging, fix it and separate)
 process.stdin.setRawMode(true);
 process.stdin.resume();
 process.stdin.setEncoding('utf8');
@@ -251,23 +277,7 @@ process.stdin.on('data', (data) => {
     if (data === '\u0020') {
         if (currentFigure) currentFigure.turn = true;
     }
-    if (data === '\u0003') { process.exit(); }
-});
-
-// TODO Separate into startup module
-updateTileMap();
-currentFigure = createFigure();
-setInterval(() => {
-    if (!GAME_OVER) {
-        updateTileMap();
-        if (currentFigure) {
-            currentFigure.process();
-        }
-        removeFullLines();
-        draw();
-    } else {
-        console.clear();
-        process.stdout.write(colorize(Colors.YELLOW, 'GAME OVER | SCORE: ' + SCORE));
-        process.exit(1);
+    if (data === '\u0003') {
+        process.exit();
     }
-}, 150);
+});
