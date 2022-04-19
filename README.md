@@ -7,3 +7,5 @@ Simple Tetris game in terminal
   * ⬅ - move left
   * ➡ - move right
   * **SPACEBAR** - rotate piece
+
+#### For better game expirience change terminal font size to 8x8 or any other with equal sides 
