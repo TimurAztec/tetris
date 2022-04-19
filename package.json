@@ -1,12 +1,25 @@
 {
   "name": "tetris",
-  "version": "0.1.0",
-  "description": "Simple Tetris in terminal",
+  "version": "0.2.0",
+  "description": "Simple Tetris game in terminal",
   "main": "index.js",
   "scripts": {},
   "keywords": [
     "tetris", "game", "terminal", "game"
   ],
-  "author": "Tymur Ptashchenko",
+  "bugs": {
+    "email": "timotiaztec@gmail.com"
+  },
+  "author": {
+    "name": "Tymur Ptashchenko",
+    "email": "timotiaztec@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TimurAztec/tetris.git"
+  },
+  "os": [
+    "win32"
+  ],
   "license": "GNU"
 }
